@@ -422,6 +422,25 @@ impl ComponentType {
 			std::ptr::NonNull::new(metadata as *mut _).unwrap(),
 		)))
 	}
+
+	#[deprecated = "Use `entry_point_code` instead"]
+	pub fn get_entry_point_code(&self, index: i64, target: i64) -> Result<Blob> {
+		self.entry_point_code(index, target)
+	}
+
+	pub fn get_layout(&self) -> Result<ShaderReflection> {
+		let mut diagnostics = null_mut();
+		let layout = vcall!(self, getLayout(0, &mut diagnostics));
+
+		if layout.is_null() {
+			let blob = Blob(IUnknown(
+				std::ptr::NonNull::new(diagnostics as *mut _).unwrap(),
+			));
+			Err(Error::Blob(blob))
+		} else {
+			Ok(ShaderReflection(std::ptr::NonNull::new(layout).unwrap()))
+		}
+	}
 }
 
 #[repr(transparent)]
@@ -551,6 +570,105 @@ impl Module {
 	}
 }
 
+#[derive(Clone)]
+pub struct ShaderReflection(pub std::ptr::NonNull<sys::slang_ShaderReflection>);
+
+unsafe impl Interface for ShaderReflection {
+	type Vtable = sys::IShaderReflectionTypeVtable;
+	/// Unused
+	const IID: UUID = IUnknown::IID;
+}
+
+impl ShaderReflection {
+	pub fn get_parameter_count(&self) -> u32 {
+		unsafe { sys::spReflection_GetParameterCount(self.as_raw()) }
+	}
+
+	pub fn get_parameter_by_index(&self, index: u32) -> Option<VariableLayoutReflection> {
+		let parameter = vcall!(self, spReflection_GetParameterByIndex(index));
+		if parameter.is_null() {
+			None
+		} else {
+			Some(VariableLayoutReflection(parameter))
+		}
+	}
+
+	pub fn get_entry_point_count(&self) -> u64 {
+		unsafe { sys::spReflection_getEntryPointCount(self.as_raw()) }
+	}
+
+	pub fn get_entry_point_by_index(&self, index: u64) -> Option<ReflectionEntryPoint> {
+		let entry_point_layout =
+			unsafe { sys::spReflection_getEntryPointByIndex(self.as_raw(), index) };
+		Some(ReflectionEntryPoint(std::ptr::NonNull::new(
+			entry_point_layout,
+		)?))
+	}
+}
+
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct ReflectionEntryPoint(std::ptr::NonNull<sys::SlangReflectionEntryPoint>);
+
+unsafe impl Interface for ReflectionEntryPoint {
+	type Vtable = sys::IShaderReflectionTypeVtable;
+	/// Unused
+	const IID: UUID = IUnknown::IID;
+}
+
+type SlangStage = sys::SlangStage;
+
+impl ReflectionEntryPoint {
+	pub fn get_name(&self) -> &str {
+		let name = unsafe { sys::spReflectionEntryPoint_getName(self.as_raw()) };
+		unsafe { CStr::from_ptr(name).to_str().unwrap() }
+	}
+
+	pub fn get_stage(&self) -> SlangStage {
+		unsafe { sys::spReflectionEntryPoint_getStage(self.as_raw()) }
+	}
+}
+
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct VariableLayoutReflection(*mut sys::slang_VariableLayoutReflection);
+
+unsafe impl Interface for VariableLayoutReflection {
+	type Vtable = sys::IVariableLayoutReflectionTypeVtable;
+	/// Unused
+	const IID: UUID = IUnknown::IID;
+}
+
+impl VariableLayoutReflection {
+	pub fn get_variable(&self) -> Option<VariableReflection> {
+		let variable = vcall!(self, spReflectionVariableLayout_GetVariable());
+		if variable.is_null() {
+			None
+		} else {
+			Some(VariableReflection(
+				std::ptr::NonNull::new(variable as *mut _).unwrap(),
+			))
+		}
+	}
+}
+
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct VariableReflection(std::ptr::NonNull<sys::slang_VariableReflection>);
+
+unsafe impl Interface for VariableReflection {
+	type Vtable = sys::IVariableReflectionTypeVtable;
+	/// Unused
+	const IID: UUID = IUnknown::IID;
+}
+
+impl VariableReflection {
+	pub fn get_name(&self) -> &str {
+		let name = vcall!(self, spReflectionVariable_GetName());
+		unsafe { CStr::from_ptr(name).to_str().unwrap() }
+	}
+}
+
 #[repr(transparent)]
 pub struct TargetDesc<'a> {
 	inner: sys::slang_TargetDesc,
@@ -629,7 +747,7 @@ impl<'a> SessionDesc<'a> {
 	}
 
 	pub fn search_paths(mut self, paths: &'a [*const i8]) -> Self {
-		self.inner.searchPaths = paths.as_ptr();
+		self.inner.searchPaths = paths.as_ptr() as _;
 		self.inner.searchPathCount = paths.len() as _;
 		self
 	}
@@ -693,8 +811,8 @@ impl CompilerOptions {
 				kind: sys::slang_CompilerOptionValueKind::String,
 				intValue0: 0,
 				intValue1: 0,
-				stringValue0: s0,
-				stringValue1: s1,
+				stringValue0: s0 as _,
+				stringValue1: s1 as _,
 			},
 		});
 
@@ -706,7 +824,7 @@ impl CompilerOptions {
 		let s0_ptr = s0.as_ptr();
 		self.strings.push(s0);
 
-		self.push_strings(name, s0_ptr, null())
+		self.push_strings(name, s0_ptr as _, null())
 	}
 
 	fn push_str2(mut self, name: CompilerOptionName, s0: &str, s1: &str) -> Self {
@@ -718,7 +836,7 @@ impl CompilerOptions {
 		let s1_ptr = s1.as_ptr();
 		self.strings.push(s1);
 
-		self.push_strings(name, s0_ptr, s1_ptr)
+		self.push_strings(name, s0_ptr as _, s1_ptr as _)
 	}
 }
 

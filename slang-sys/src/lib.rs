@@ -107,6 +107,22 @@ pub struct IComponentTypeVtable {
 }
 
 #[repr(C)]
+pub struct IShaderReflectionTypeVtable {
+	pub spReflection_GetParameterCount: unsafe extern "C" fn(*mut c_void) -> u32,
+	pub spReflection_GetParameterByIndex: unsafe extern "C" fn(*mut c_void, index: u32) -> *mut slang_VariableLayoutReflection,
+}
+
+#[repr(C)]
+pub struct IVariableLayoutReflectionTypeVtable {
+	pub spReflectionVariableLayout_GetVariable: unsafe extern "C" fn(*mut c_void) -> *mut slang_VariableReflection,
+}
+
+#[repr(C)]
+pub struct IVariableReflectionTypeVtable {
+	pub spReflectionVariable_GetName: unsafe extern "C" fn(*mut c_void) -> *const c_char,
+}
+
+#[repr(C)]
 pub struct IEntryPointVtable {
 	pub _base: IComponentTypeVtable,
 

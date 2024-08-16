@@ -34,7 +34,9 @@ fn main() {
 		.allowlist_function("spReflection.*")
 		.allowlist_function("spComputeStringHash")
 		.allowlist_function("slang_.*")
+		.allowlist_function("sp.*")
 		.allowlist_type("slang.*")
+		.allowlist_type("ShaderReflection.*")
 		.allowlist_var("SLANG_.*")
 		.with_codegen_config(
 			bindgen::CodegenConfig::FUNCTIONS
