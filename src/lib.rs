@@ -618,7 +618,7 @@ impl ShaderReflection {
 	}
 
 	pub fn get_parameter_by_index(&self, index: u32) -> Option<VariableLayoutReflection> {
-		let parameter = vcall!(self, spReflection_GetParameterByIndex(index));
+		let parameter = unsafe { sys::spReflection_GetParameterByIndex(self.as_raw(), index) };
 		if parameter.is_null() {
 			None
 		} else {
@@ -660,11 +660,24 @@ impl ReflectionEntryPoint {
 	pub fn get_stage(&self) -> SlangStage {
 		unsafe { sys::spReflectionEntryPoint_getStage(self.as_raw()) }
 	}
+
+	pub fn get_parameter_count(&self) -> u32 {
+		unsafe { sys::spReflectionEntryPoint_getParameterCount(self.as_raw()) }
+	}
+
+	pub fn get_parameter_by_index(&self, index: u32) -> Option<VariableLayoutReflection> {
+		let var = unsafe { sys::spReflectionEntryPoint_getParameterByIndex(self.as_raw(), index) };
+		if var.is_null() {
+			None
+		} else {
+			Some(VariableLayoutReflection(var))
+		}
+	}
 }
 
 #[repr(transparent)]
 #[derive(Clone)]
-pub struct VariableLayoutReflection(*mut sys::slang_VariableLayoutReflection);
+pub struct VariableLayoutReflection(*mut sys::SlangReflectionVariableLayout);
 
 unsafe impl Interface for VariableLayoutReflection {
 	type Vtable = sys::IVariableLayoutReflectionTypeVtable;
@@ -674,7 +687,7 @@ unsafe impl Interface for VariableLayoutReflection {
 
 impl VariableLayoutReflection {
 	pub fn get_variable(&self) -> Option<VariableReflection> {
-		let variable = vcall!(self, spReflectionVariableLayout_GetVariable());
+		let variable = unsafe { sys::spReflectionVariableLayout_GetVariable(self.as_raw()) };
 		if variable.is_null() {
 			None
 		} else {
@@ -687,7 +700,7 @@ impl VariableLayoutReflection {
 
 #[repr(transparent)]
 #[derive(Clone)]
-pub struct VariableReflection(std::ptr::NonNull<sys::slang_VariableReflection>);
+pub struct VariableReflection(std::ptr::NonNull<sys::SlangReflectionVariable>);
 
 unsafe impl Interface for VariableReflection {
 	type Vtable = sys::IVariableReflectionTypeVtable;
@@ -697,8 +710,44 @@ unsafe impl Interface for VariableReflection {
 
 impl VariableReflection {
 	pub fn get_name(&self) -> &str {
-		let name = vcall!(self, spReflectionVariable_GetName());
+		let name = unsafe { sys::spReflectionVariable_GetName(self.as_raw()) };
 		unsafe { CStr::from_ptr(name).to_str().unwrap() }
+	}
+
+	pub fn get_type(&self) -> ReflectionType {
+		let ty = unsafe { sys::spReflectionVariable_GetType(self.as_raw()) };
+		ReflectionType(std::ptr::NonNull::new(ty).unwrap())
+	}
+}
+
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct ReflectionType(std::ptr::NonNull<sys::SlangReflectionType>);
+
+unsafe impl Interface for ReflectionType {
+	type Vtable = sys::IBlobVtable;
+	/// Unused
+	const IID: UUID = IUnknown::IID;
+}
+
+pub type TypeKind = sys::SlangTypeKind;
+
+impl ReflectionType {
+	pub fn get_kind(&self) -> TypeKind {
+		unsafe { sys::spReflectionType_GetKind(self.as_raw()) }
+	}
+
+	pub fn get_element_count(&self) -> usize {
+		unsafe { sys::spReflectionType_GetElementCount(self.as_raw()) }
+	}
+
+	pub fn get_element_type(&self) -> Option<ReflectionType> {
+		let element_type = unsafe { sys::spReflectionType_GetElementType(self.as_raw()) };
+		if element_type.is_null() {
+			None
+		} else {
+			Some(Self(std::ptr::NonNull::new(element_type)?))
+		}
 	}
 }
 
