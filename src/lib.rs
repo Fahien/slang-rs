@@ -251,6 +251,39 @@ impl Session {
 		}
 	}
 
+	pub fn load_module_from_source_string(
+		&self,
+		name: &str,
+		path: &str,
+		string: &str,
+	) -> Result<Module, String> {
+		let name = CString::new(name).unwrap();
+		let path = CString::new(path).unwrap();
+		let string = CString::new(string).unwrap();
+		let mut diagnostics = null_mut();
+
+		let module = vcall!(
+			self,
+			loadModuleFromSourceString(
+				name.as_ptr(),
+				path.as_ptr(),
+				string.as_ptr(),
+				&mut diagnostics
+			)
+		);
+
+		if module.is_null() {
+			let blob = Blob(IUnknown(
+				std::ptr::NonNull::new(diagnostics as *mut _).unwrap(),
+			));
+			Err(std::str::from_utf8(blob.as_slice()).unwrap().to_string())
+		} else {
+			let module = Module(IUnknown(std::ptr::NonNull::new(module as *mut _).unwrap()));
+			unsafe { (module.as_unknown().vtable().ISlangUnknown_addRef)(module.as_raw()) };
+			Ok(module)
+		}
+	}
+
 	pub fn create_composite_component_type(
 		&self,
 		components: &[ComponentType],
