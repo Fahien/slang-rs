@@ -256,7 +256,7 @@ impl Session {
 		name: &str,
 		path: &str,
 		string: &str,
-	) -> Result<Module, String> {
+	) -> Result<Module> {
 		let name = CString::new(name).unwrap();
 		let path = CString::new(path).unwrap();
 		let string = CString::new(string).unwrap();
@@ -276,7 +276,7 @@ impl Session {
 			let blob = Blob(IUnknown(
 				std::ptr::NonNull::new(diagnostics as *mut _).unwrap(),
 			));
-			Err(std::str::from_utf8(blob.as_slice()).unwrap().to_string())
+			Err(Error::Blob(blob))
 		} else {
 			let module = Module(IUnknown(std::ptr::NonNull::new(module as *mut _).unwrap()));
 			unsafe { (module.as_unknown().vtable().ISlangUnknown_addRef)(module.as_raw()) };
@@ -637,6 +637,17 @@ impl ShaderReflection {
 			entry_point_layout,
 		)?))
 	}
+
+	pub fn get_type_layout(&self, ty: &ReflectionType) -> Option<ReflectionTypeLayout> {
+		let type_layout = unsafe {
+			sys::spReflection_GetTypeLayout(
+				self.as_raw(),
+				ty.as_raw(),
+				sys::SlangLayoutRules::Default,
+			)
+		};
+		Some(ReflectionTypeLayout(std::ptr::NonNull::new(type_layout)?))
+	}
 }
 
 #[repr(transparent)]
@@ -696,6 +707,25 @@ impl VariableLayoutReflection {
 			))
 		}
 	}
+
+	pub fn get_type_layout(&self) -> Option<ReflectionTypeLayout> {
+		let type_layout = unsafe { sys::spReflectionVariableLayout_GetTypeLayout(self.as_raw()) };
+		Some(ReflectionTypeLayout(std::ptr::NonNull::new(type_layout)?))
+	}
+
+	pub fn get_binding_index(&self) -> u32 {
+		unsafe { sys::spReflectionParameter_GetBindingIndex(self.as_raw()) }
+	}
+
+	pub fn get_binding_space(&self) -> u32 {
+		unsafe {
+			sys::spReflectionParameter_GetBindingSpace(self.as_raw())
+				+ sys::spReflectionVariableLayout_GetOffset(
+					self.as_raw(),
+					sys::SlangParameterCategory::SubElementRegisterSpace,
+				) as u32
+		}
+	}
 }
 
 #[repr(transparent)]
@@ -730,8 +760,6 @@ unsafe impl Interface for ReflectionType {
 	const IID: UUID = IUnknown::IID;
 }
 
-pub type TypeKind = sys::SlangTypeKind;
-
 impl ReflectionType {
 	pub fn get_kind(&self) -> TypeKind {
 		unsafe { sys::spReflectionType_GetKind(self.as_raw()) }
@@ -748,6 +776,57 @@ impl ReflectionType {
 		} else {
 			Some(Self(std::ptr::NonNull::new(element_type)?))
 		}
+	}
+
+	pub fn get_row_count(&self) -> u32 {
+		unsafe { sys::spReflectionType_GetRowCount(self.as_raw()) }
+	}
+
+	pub fn get_column_count(&self) -> u32 {
+		unsafe { sys::spReflectionType_GetColumnCount(self.as_raw()) }
+	}
+
+	pub fn get_specialized_arg_count(&self) -> i64 {
+		unsafe { sys::spReflectionType_getSpecializedTypeArgCount(self.as_raw()) }
+	}
+
+	pub fn get_specialized_arg_type(&self, index: i64) -> Option<ReflectionType> {
+		let arg_ty =
+			unsafe { sys::spReflectionType_getSpecializedTypeArgType(self.as_raw(), index) };
+		Some(ReflectionType(std::ptr::NonNull::new(arg_ty)?))
+	}
+}
+
+#[derive(Clone)]
+pub struct ReflectionTypeLayout(pub std::ptr::NonNull<sys::SlangReflectionTypeLayout>);
+
+unsafe impl Interface for ReflectionTypeLayout {
+	type Vtable = sys::IBlobVtable;
+	/// Unused
+	const IID: UUID = IUnknown::IID;
+}
+
+impl ReflectionTypeLayout {
+	pub fn get_category_count(&self) -> u32 {
+		unsafe { sys::spReflectionTypeLayout_GetCategoryCount(self.as_raw()) }
+	}
+
+	pub fn get_parameter_category(&self) -> ParameterCategory {
+		unsafe { sys::spReflectionTypeLayout_GetParameterCategory(self.as_raw()) }
+	}
+
+	pub fn get_set(&self) -> i64 {
+		unsafe {
+			sys::spReflectionTypeLayout_getDescriptorSetDescriptorRangeIndexOffset(
+				self.as_raw(),
+				0,
+				0,
+			)
+		}
+	}
+
+	pub fn get_binding(&self) -> i64 {
+		unsafe { sys::spReflectionTypeLayout_getBindingRangeDescriptorSetIndex(self.as_raw(), 0) }
 	}
 }
 
