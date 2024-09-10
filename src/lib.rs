@@ -720,11 +720,18 @@ impl VariableLayoutReflection {
 	pub fn get_binding_space(&self) -> u32 {
 		unsafe {
 			sys::spReflectionParameter_GetBindingSpace(self.as_raw())
-				+ sys::spReflectionVariableLayout_GetOffset(
-					self.as_raw(),
-					sys::SlangParameterCategory::SubElementRegisterSpace,
-				) as u32
+				+ self.get_offset(sys::SlangParameterCategory::SubElementRegisterSpace) as u32
 		}
+	}
+
+	pub fn get_offset(&self, category: ParameterCategory) -> usize {
+		unsafe { sys::spReflectionVariableLayout_GetOffset(self.as_raw(), category) }
+	}
+
+	pub fn get_binding_space_for_category(&self, category: ParameterCategory) -> u32 {
+		let space = unsafe { sys::spReflectionVariableLayout_GetSpace(self.as_raw(), category) };
+		let ret = space + self.get_offset(sys::SlangParameterCategory::SubElementRegisterSpace);
+		ret as u32
 	}
 }
 
@@ -809,6 +816,10 @@ unsafe impl Interface for ReflectionTypeLayout {
 impl ReflectionTypeLayout {
 	pub fn get_category_count(&self) -> u32 {
 		unsafe { sys::spReflectionTypeLayout_GetCategoryCount(self.as_raw()) }
+	}
+
+	pub fn get_category_by_index(&self, index: u32) -> ParameterCategory {
+		unsafe { sys::spReflectionTypeLayout_GetCategoryByIndex(self.as_raw(), index) }
 	}
 
 	pub fn get_parameter_category(&self) -> ParameterCategory {
