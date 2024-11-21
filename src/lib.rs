@@ -776,6 +776,23 @@ impl ReflectionType {
 		unsafe { sys::spReflectionType_GetElementCount(self.as_raw()) }
 	}
 
+	pub fn get_resource_access(&self) -> ResourceAccess {
+		unsafe { sys::spReflectionType_GetResourceAccess(self.as_raw()) }
+	}
+
+	pub fn get_resource_shape(&self) -> ResourceShape {
+		unsafe { sys::spReflectionType_GetResourceShape(self.as_raw()) }
+	}
+
+	pub fn get_result_type(&self) -> Option<ReflectionType> {
+		let result_type = unsafe { sys::spReflectionType_GetResourceResultType(self.as_raw()) };
+		if result_type.is_null() {
+			None
+		} else {
+			Some(Self(std::ptr::NonNull::new(result_type)?))
+		}
+	}
+
 	pub fn get_element_type(&self) -> Option<ReflectionType> {
 		let element_type = unsafe { sys::spReflectionType_GetElementType(self.as_raw()) };
 		if element_type.is_null() {
