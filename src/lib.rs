@@ -772,6 +772,19 @@ impl ReflectionType {
 		unsafe { sys::spReflectionType_GetKind(self.as_raw()) }
 	}
 
+	pub fn get_field_count(&self) -> u32 {
+		unsafe { sys::spReflectionType_GetFieldCount(self.as_raw()) }
+	}
+
+	pub fn get_field_by_index(&self, index: u32) -> Option<VariableReflection> {
+		let field = unsafe { sys::spReflectionType_GetFieldByIndex(self.as_raw(), index) };
+		if field.is_null() {
+			None
+		} else {
+			Some(VariableReflection(std::ptr::NonNull::new(field)?))
+		}
+	}
+
 	pub fn get_element_count(&self) -> usize {
 		unsafe { sys::spReflectionType_GetElementCount(self.as_raw()) }
 	}
@@ -831,6 +844,23 @@ unsafe impl Interface for ReflectionTypeLayout {
 }
 
 impl ReflectionTypeLayout {
+	pub fn get_size(&self, category: ParameterCategory) -> usize {
+		unsafe { sys::spReflectionTypeLayout_GetSize(self.as_raw(), category) }
+	}
+
+	pub fn get_field_count(&self) -> u32 {
+		unsafe { sys::spReflectionTypeLayout_GetFieldCount(self.as_raw()) }
+	}
+
+	pub fn get_field_by_index(&self, index: u32) -> Option<VariableLayoutReflection> {
+		let field = unsafe { sys::spReflectionTypeLayout_GetFieldByIndex(self.as_raw(), index) };
+		if field.is_null() {
+			None
+		} else {
+			Some(VariableLayoutReflection(field))
+		}
+	}
+
 	pub fn get_category_count(&self) -> u32 {
 		unsafe { sys::spReflectionTypeLayout_GetCategoryCount(self.as_raw()) }
 	}
